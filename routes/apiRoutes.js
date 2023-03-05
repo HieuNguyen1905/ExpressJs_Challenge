@@ -1,49 +1,37 @@
-// const express = require('express');
-// const database = require('../db/db.json');
-// const app = express();
-// //const uuid = require('../helper/uuid')
-// const fs = require('fs');
+const router = require('express').Router()
+const { v4: uuidv4 } = require('uuid');
+const { readAndAppend, readFromFile, writeToFile } = require('../helpers/fsUtils');
+const fs = require('fs')
 
-// app.get('/notes', (req, res) =>
-//     fs.readFile(database, "utf-8",((err,data) =>{
-//         if(err){
-//             throw err;
-//         } else {
-//             const db = JSON.parse(data);
-//             res.json(db);
-//             console.log(db);
-//         }
-//     }))
-// );
-
-// module.exports = app;
-const express = require('express');
-const store = require('../db/store');
-const app = express();
 
 // GET "/api/notes" responds with all notes from the database
-app.get('/notes', (req, res) => {
-    store
-      .getNotes()
-      .then((notes) => {
-        return res.json(notes);
-      })
-      .catch((err) => res.status(500).json(err));
-  });
+router.get('/notes', async (req, res) => {
+  const notes = await readFromFile('./db/db.json')
+  res.json(JSON.parse(notes))
+});
 
-  app.post('/notes', (req, res) => {
-    store
-      .addNote(req.body)
-      .then((note) => res.json(note))
-      .catch((err) => res.status(500).json(err));
-  });
+router.post('/notes', async (req, res) => {
+  const newNotes = {
+    title: req.body.title,
+    text: req.body.text,
+    id: uuidv4()
+  }
+  readAndAppend(newNotes, './db/db.json');
+  const notes = await readFromFile('./db/db.json')
+  res.json(JSON.parse(notes))
+
+})
+
+router.delete('/notes/:id', (req, res) => {
+  readFromFile('./db/db.json')
+    .then((notes) =>
+      JSON.parse(notes))
+    .then((data) => {
+      const result = data.filter((element) => element.id !== req.params.id)
+      writeToFile('./db/db.json', result)
+      res.redirect('/notes')
+    })
   
-  // DELETE "/api/notes" deletes the note with an id equal to req.params.id
-  app.delete('/notes/:id', (req, res) => {
-    store
-      .removeNote(req.params.id)
-      .then(() => res.json({ ok: true }))
-      .catch((err) => res.status(500).json(err));
-  });
+})
 
-  module.exports = app;
+module.exports = router;
